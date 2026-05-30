@@ -377,17 +377,17 @@ async function generatePDF() {
     const W = SIZE, H = SIZE;
 
     // Background
-    doc.setFillColor(10, 10, 10);
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, W, H, 'F');
 
     // Grid
-    doc.setDrawColor(22, 22, 22);
+    doc.setDrawColor(235, 230, 222);
     doc.setLineWidth(0.5);
     for (let x = 0; x <= W; x += 150) doc.line(x, 0, x, H);
     for (let y = 0; y <= H; y += 150) doc.line(0, y, W, y);
 
     // Top accent line
-    doc.setDrawColor(232, 213, 163);
+    doc.setDrawColor(139, 111, 71);
     doc.setLineWidth(3);
     doc.line(120, 110, W - 120, 110);
 
@@ -413,11 +413,11 @@ async function generatePDF() {
     doc.setFontSize(aSize);
     const aName = albumData.artist.toUpperCase();
     while (doc.getTextWidth(aName) > W - 240 && aSize > 50) { aSize -= 4; doc.setFontSize(aSize); }
-    doc.setTextColor(240,236,228);
+    doc.setTextColor(240, 236, 228);
     doc.text(aName, 120, 310);
 
     // Divider
-    doc.setDrawColor(232,213,163);
+    doc.setDrawColor(139, 111, 71);
     doc.setLineWidth(1.5);
     doc.line(120, 360, W-120, 360);
 
@@ -426,7 +426,7 @@ async function generatePDF() {
     let tSize = 80;
     doc.setFontSize(tSize);
     while (doc.getTextWidth(albumData.album) > W-240 && tSize > 36) { tSize -= 4; doc.setFontSize(tSize); }
-    doc.setTextColor(232,213,163);
+    doc.setDrawColor(139, 111, 71);
     doc.text(albumData.album, 120, 470);
 
     // Meta
@@ -476,7 +476,7 @@ async function generatePDF() {
       doc.text(String(tracks[i].number).padStart(2,'0'), x, y+40);
 
       doc.setFontSize(30);
-      doc.setTextColor(220,216,208);
+      doc.setTextColor(50, 44, 38);
       let tname = tracks[i].title;
       while (doc.getTextWidth(tname) > colW - 110 && tname.length > 8) tname = tname.slice(0,-4)+'...';
       doc.text(tname, x + 52, y+42);
@@ -497,7 +497,7 @@ async function generatePDF() {
     // Footer
     doc.setFont('helvetica','normal');
     doc.setFontSize(16);
-    doc.setTextColor(55,50,40);
+    doc.setTextColor(160, 150, 135);
     doc.setCharSpace(3);
     doc.text('VINYL — MUSICBRAINZ OPEN DATABASE', W/2, H-65, { align: 'center' });
     doc.setCharSpace(0);
