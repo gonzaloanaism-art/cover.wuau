@@ -35,7 +35,7 @@
     line-height: 0.9; text-shadow: 0 0 80px rgba(139,111,71,0.2);
   }
   .logo span {
-    color: var(--muted); font-size: 0.45em; letter-spacing: 0.3em;
+    color: var(--muted); font-size: 0.45em; 
     display: block; margin-top: 8px;
     font-family: 'DM Mono', monospace; font-weight: 300;
   }
@@ -163,8 +163,13 @@
 <body>
 <div class="container">
   <header>
-    <div class="logo">VINYL<br><span>— album poster generator —</span></div>
-  </header>
+    <div class="logo">
+       <img src="img/cover.png" alt="Cover">
+        <br>
+        <span>Generador de carátulas</span>
+    </div>
+  
+</header>
 
   <div class="search-section">
     <label>Ingresa el nombre del disco</label>
