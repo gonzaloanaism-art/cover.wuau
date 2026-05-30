@@ -242,7 +242,7 @@ async function searchAlbum() {
   setStatus('loading', 'Buscando en MusicBrainz...');
 
   try {
-    const data = await mbFetch(`${MB}/release/?query=${encodeURIComponent(query)}&fmt=json&limit=8`);
+    const data = await mbFetch(`${MB}/release/?query=${encodeURIComponent(query)}&fmt=json&limit=20`);
     const releases = data.releases || [];
 
     if (!releases.length) {
@@ -413,7 +413,7 @@ async function generatePDF() {
     doc.setFontSize(aSize);
     const aName = albumData.artist.toUpperCase();
     while (doc.getTextWidth(aName) > W - 240 && aSize > 50) { aSize -= 4; doc.setFontSize(aSize); }
-    doc.setTextColor(240, 236, 228);
+    doc.setDrawColor(28,28,28);
     doc.text(aName, 120, 310);
 
     // Divider
@@ -426,7 +426,7 @@ async function generatePDF() {
     let tSize = 80;
     doc.setFontSize(tSize);
     while (doc.getTextWidth(albumData.album) > W-240 && tSize > 36) { tSize -= 4; doc.setFontSize(tSize); }
-    doc.setDrawColor(139, 111, 71);
+    doc.setDrawColor(28,28,28);
     doc.text(albumData.album, 120, 470);
 
     // Meta
@@ -471,7 +471,7 @@ async function generatePDF() {
       doc.line(x, y, x + colW, y);
 
       doc.setFont('helvetica','normal');
-      doc.setFontSize(18);
+      doc.setFontSize(25);
       doc.setTextColor(90,80,60);
       doc.text(String(tracks[i].number).padStart(2,'0'), x, y+40);
 
