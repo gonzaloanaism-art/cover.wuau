@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vinyl — Album Poster Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f2ed; --surface: #ffffff; --border: #ddd8d0;
+    --accent: #8b6f47; --accent2: #a07850;
+    --text: #1a1612; --muted: #9a9088; --red: #c0392b; --green: #2e7d52;
+  }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; padding: 48px 24px; overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(139,111,71,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(139,111,71,0.07) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  .container { width: 100%; max-width: 740px; position: relative; z-index: 1; }
+  header { text-align: center; margin-bottom: 56px; }
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 10vw, 88px);
+    letter-spacing: 0.06em; color: var(--accent);
+    line-height: 0.9; text-shadow: 0 0 80px rgba(139,111,71,0.2);
+  }
+  .logo span {
+    color: var(--muted); font-size: 0.45em; letter-spacing: 0.3em;
+    display: block; margin-top: 8px;
+    font-family: 'DM Mono', monospace; font-weight: 300;
+  }
+  .search-section {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 32px; position: relative;
+    box-shadow: 0 4px 24px rgba(139,111,71,0.08);
+  }
+  .search-section::before {
+    content: ''; position: absolute; top: 0; left: 0;
+    width: 40px; height: 40px;
+    border-top: 2px solid var(--accent); border-left: 2px solid var(--accent);
+  }
+  .search-section::after {
+    content: ''; position: absolute; bottom: 0; right: 0;
+    width: 40px; height: 40px;
+    border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent);
+  }
+  label { display: block; font-size: 11px; letter-spacing: 0.2em; color: var(--accent2); text-transform: uppercase; margin-bottom: 10px; }
+  .input-row { display: flex; }
+  input[type="text"] {
+    flex: 1; background: #faf8f5; border: 1px solid var(--border);
+    border-right: none; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 15px;
+    padding: 14px 18px; outline: none; transition: border-color 0.2s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--muted); font-style: italic; }
+  button.search-btn {
+    background: var(--accent); color: var(--bg); border: none;
+    font-family: 'Bebas Neue', sans-serif; font-size: 16px;
+    letter-spacing: 0.15em; padding: 14px 28px;
+    cursor: pointer; transition: background 0.2s, transform 0.1s; white-space: nowrap;
+  }
+  button.search-btn:hover { background: var(--accent2); }
+  button.search-btn:active { transform: scale(0.98); }
+  button.search-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  .status {
+    margin-top: 16px; font-size: 12px; letter-spacing: 0.1em;
+    min-height: 20px; display: flex; align-items: center; gap: 8px;
+  }
+  .status.loading { color: var(--accent2); }
+  .status.error { color: var(--red); }
+  .status.success { color: var(--green); }
+  .dot-anim { display: inline-flex; gap: 3px; }
+  .dot-anim span {
+    width: 4px; height: 4px; background: currentColor;
+    border-radius: 50%; animation: pulse 1.2s ease-in-out infinite;
+  }
+  .dot-anim span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-anim span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+  /* Results picker */
+  .picker { margin-top: 24px; display: none; }
+  .picker.visible { display: block; }
+  .picker-label {
+    font-size: 11px; letter-spacing: 0.2em; color: var(--accent2);
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+  .picker-list { display: flex; flex-direction: column; gap: 6px; }
+  .picker-item {
+    background: #faf8f5; border: 1px solid var(--border);
+    padding: 12px 16px; cursor: pointer;
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 8px; align-items: center;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .picker-item:hover { border-color: var(--accent); background: rgba(232,213,163,0.04); }
+  .picker-item .pi-title { font-size: 13px; color: var(--text); }
+  .picker-item .pi-artist { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .picker-item .pi-meta { font-size: 11px; color: var(--muted); text-align: right; white-space: nowrap; }
+
+  /* Result card */
+  .result-card {
+    margin-top: 40px; background: var(--surface);
+    border: 1px solid var(--border); overflow: hidden;
+    box-shadow: 0 4px 24px rgba(139,111,71,0.08);
+    animation: slideUp 0.4s ease; display: none;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+  .result-card.visible { display: block; }
+  .result-header {
+    padding: 28px 32px 24px; border-bottom: 1px solid var(--border);
+    display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start;
+  }
+  .album-title-display {
+    font-family: 'Playfair Display', serif; font-size: 28px;
+    font-style: italic; color: var(--accent); line-height: 1.2;
+  }
+  .artist-name { font-size: 13px; color: var(--text); letter-spacing: 0.1em; margin-top: 6px; text-transform: uppercase; }
+  .meta-pills { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .pill { font-size: 10px; letter-spacing: 0.15em; padding: 4px 10px; border: 1px solid var(--border); color: var(--muted); text-transform: uppercase; }
+  .pill.year { border-color: var(--accent2); color: var(--accent2); }
+  .track-count { font-size: 11px; color: var(--muted); text-align: right; white-space: nowrap; }
+  .track-count strong { font-size: 32px; font-family: 'Bebas Neue', sans-serif; color: var(--accent); display: block; line-height: 1; }
+  .tracklist { padding: 0; }
+  .track-item {
+    display: grid; grid-template-columns: 44px 1fr auto;
+    align-items: center; padding: 13px 32px;
+    border-bottom: 1px solid var(--border); gap: 16px; transition: background 0.15s;
+  }
+  .track-item:last-child { border-bottom: none; }
+  .track-item:hover { background: rgba(139,111,71,0.05); }
+  .track-num { font-size: 11px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+  .track-name { font-size: 13px; color: var(--text); letter-spacing: 0.02em; }
+  .track-duration { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .actions {
+    padding: 24px 32px; border-top: 1px solid var(--border);
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  button.pdf-btn {
+    background: transparent; color: var(--accent); border: 1px solid var(--accent);
+    font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 0.15em;
+    padding: 12px 28px; cursor: pointer; transition: all 0.2s; flex: 1; min-width: 180px;
+  }
+  button.pdf-btn:hover { background: var(--accent); color: var(--bg); }
+  button.pdf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.pdf-btn.primary { background: var(--accent); color: var(--bg); }
+  button.pdf-btn.primary:hover { background: var(--accent2); }
+  .pdf-status { padding: 0 32px 20px; font-size: 11px; color: var(--muted); display: none; }
+  footer { margin-top: 64px; font-size: 10px; color: var(--muted); letter-spacing: 0.15em; text-align: center; opacity: 0.5; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">VINYL<br><span>— album poster generator —</span></div>
+  </header>
+
+  <div class="search-section">
+    <label>Ingresa el nombre del disco</label>
+    <div class="input-row">
+      <input type="text" id="albumInput" placeholder="ej: Kind of Blue, Nevermind, Folklore..." autocomplete="off" />
+      <button class="search-btn" id="searchBtn" onclick="searchAlbum()">BUSCAR</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <!-- Picker cuando hay múltiples resultados -->
+  <div class="picker" id="picker">
+    <div class="picker-label">Selecciona el álbum correcto</div>
+    <div class="picker-list" id="pickerList"></div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-header">
+      <div>
+        <div class="album-title-display" id="displayTitle">—</div>
+        <div class="artist-name" id="displayArtist">—</div>
+        <div class="meta-pills">
+          <span class="pill year" id="displayYear">—</span>
+          <span class="pill" id="displayCountry">—</span>
+        </div>
+      </div>
+      <div class="track-count">
+        <strong id="trackCountNum">—</strong>
+        tracks
+      </div>
+    </div>
+    <div class="tracklist" id="tracklist"></div>
+    <div class="pdf-status" id="pdfStatus"></div>
+    <div class="actions">
+      <button class="pdf-btn primary" id="pdfBtn" onclick="generatePDF()">↓ DESCARGAR PÓSTER PDF</button>
+      <button class="pdf-btn" onclick="clearResult()">NUEVA BÚSQUEDA</button>
+    </div>
+  </div>
+
+  <footer>Datos: MusicBrainz Open Database · Sin API key requerida</footer>
+</div>
+
+<script>
+const MB = 'https://musicbrainz.org/ws/2';
+const UA = 'AlbumPosterGenerator/1.0 (local)';
+let albumData = null;
+
+function msFmt(ms) {
+  if (!ms) return '—';
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+async function mbFetch(url) {
+  const res = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function searchAlbum() {
+  const query = document.getElementById('albumInput').value.trim();
+  if (!query) return;
+
+  const btn = document.getElementById('searchBtn');
+  const status = document.getElementById('status');
+
+  btn.disabled = true;
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('picker').classList.remove('visible');
+  setStatus('loading', 'Buscando en MusicBrainz...');
+
+  try {
+    const data = await mbFetch(`${MB}/release/?query=${encodeURIComponent(query)}&fmt=json&limit=8`);
+    const releases = data.releases || [];
+
+    if (!releases.length) {
+      setStatus('error', '✗ No se encontró el álbum. Prueba con otro nombre.');
+      btn.disabled = false;
+      return;
+    }
+
+    // Si hay varios, mostrar picker
+    if (releases.length > 1) {
+      setStatus('success', `✓ ${releases.length} resultados encontrados`);
+      showPicker(releases);
+    } else {
+      await loadRelease(releases[0].id, releases[0]);
+    }
+  } catch (e) {
+    setStatus('error', '✗ Error de conexión con MusicBrainz.');
+    console.error(e);
+  }
+  btn.disabled = false;
+}
+
+function showPicker(releases) {
+  const list = document.getElementById('pickerList');
+  list.innerHTML = releases.map(r => {
+    const artist = r['artist-credit']?.[0]?.name || '—';
+    const year = (r.date || '').slice(0, 4) || '—';
+    const country = r.country || '';
+    return `<div class="picker-item" onclick="pickRelease('${r.id}', this)" data-id="${r.id}">
+      <div>
+        <div class="pi-title">${r.title}</div>
+        <div class="pi-artist">${artist}</div>
+      </div>
+      <div class="pi-meta">${year}${country ? ' · ' + country : ''}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('picker').classList.add('visible');
+}
+
+async function pickRelease(id, el) {
+  // Highlight selected
+  document.querySelectorAll('.picker-item').forEach(i => i.style.borderColor = '');
+  el.style.borderColor = 'var(--accent)';
+  setStatus('loading', 'Cargando tracklist...');
+  await loadRelease(id);
+}
+
+async function loadRelease(id) {
+  try {
+    setStatus('loading', 'Cargando tracklist...');
+    const rel = await mbFetch(`${MB}/release/${id}?inc=recordings+artists+release-groups+genres&fmt=json`);
+
+    const artist = rel['artist-credit']?.[0]?.name || '—';
+    const year = (rel.date || '').slice(0, 4) || '—';
+    const country = rel.country || '';
+    const genres = rel['release-group']?.genres?.map(g => g.name) || rel.genres?.map(g => g.name) || [];
+    const genreStr = genres.length ? genres.slice(0,2).map(g => g.charAt(0).toUpperCase()+g.slice(1)).join(' / ') : '—';
+
+    // Flatten all tracks from all media
+    const tracks = [];
+    (rel.media || []).forEach(media => {
+      (media.tracks || []).forEach(t => {
+        tracks.push({
+          number: tracks.length + 1,
+          title: t.title || t.recording?.title || '—',
+          duration: msFmt(t.length || t.recording?.length)
+        });
+      });
+    });
+
+    albumData = { artist, album: rel.title, year, genre: genreStr, country, tracks };
+    renderResult(albumData);
+    setStatus('success', `✓ ${tracks.length} tracks cargados`);
+    document.getElementById('picker').classList.remove('visible');
+  } catch (e) {
+    setStatus('error', '✗ Error al cargar el tracklist.');
+    console.error(e);
+  }
+}
+
+function renderResult(data) {
+  document.getElementById('displayTitle').textContent = data.album;
+  document.getElementById('displayArtist').textContent = data.artist;
+  document.getElementById('displayYear').textContent = data.year;
+  document.getElementById('displayCountry').textContent = data.genre !== '—' ? data.genre : (data.country || '—');
+  document.getElementById('trackCountNum').textContent = data.tracks.length;
+
+  const tl = document.getElementById('tracklist');
+  tl.innerHTML = data.tracks.map(t => `
+    <div class="track-item">
+      <span class="track-num">${String(t.number).padStart(2,'0')}</span>
+      <span class="track-name">${t.title}</span>
+      <span class="track-duration">${t.duration}</span>
+    </div>`).join('');
+
+  document.getElementById('resultCard').classList.add('visible');
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = 'status ' + type;
+  if (type === 'loading') {
+    el.innerHTML = `<div class="dot-anim"><span></span><span></span><span></span></div> ${msg}`;
+  } else {
+    el.textContent = msg;
+  }
+}
+
+function clearResult() {
+  albumData = null;
+  document.getElementById('resultCard').classList.remove('visible');
+  document.getElementById('picker').classList.remove('visible');
+  document.getElementById('albumInput').value = '';
+  document.getElementById('albumInput').focus();
+  document.getElementById('status').className = 'status';
+  document.getElementById('status').textContent = '';
+}
+
+async function generatePDF() {
+  if (!albumData) return;
+  const btn = document.getElementById('pdfBtn');
+  const pdfStatus = document.getElementById('pdfStatus');
+  btn.disabled = true;
+  btn.textContent = 'GENERANDO PÓSTER...';
+  pdfStatus.style.display = 'block';
+  pdfStatus.textContent = 'Creando póster 3000×3000px...';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const SIZE = 3000;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [SIZE, SIZE] });
+    const W = SIZE, H = SIZE;
+
+    // Background
+    doc.setFillColor(10, 10, 10);
+    doc.rect(0, 0, W, H, 'F');
+
+    // Grid
+    doc.setDrawColor(22, 22, 22);
+    doc.setLineWidth(0.5);
+    for (let x = 0; x <= W; x += 150) doc.line(x, 0, x, H);
+    for (let y = 0; y <= H; y += 150) doc.line(0, y, W, y);
+
+    // Top accent line
+    doc.setDrawColor(232, 213, 163);
+    doc.setLineWidth(3);
+    doc.line(120, 110, W - 120, 110);
+
+    // Corner brackets
+    doc.setLineWidth(4);
+    const b = 80;
+    [[60,60,1,1],[W-60,60,-1,1],[60,H-60,1,-1],[W-60,H-60,-1,-1]].forEach(([x,y,dx,dy]) => {
+      doc.line(x, y, x + dx*b, y);
+      doc.line(x, y, x, y + dy*b);
+    });
+
+    // ARTIST label
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(22);
+    doc.setTextColor(150,130,100);
+    doc.setCharSpace(6);
+    doc.text('ARTIST', 120, 175);
+    doc.setCharSpace(0);
+
+    // Artist name
+    doc.setFont('helvetica','bold');
+    let aSize = 110;
+    doc.setFontSize(aSize);
+    const aName = albumData.artist.toUpperCase();
+    while (doc.getTextWidth(aName) > W - 240 && aSize > 50) { aSize -= 4; doc.setFontSize(aSize); }
+    doc.setTextColor(240,236,228);
+    doc.text(aName, 120, 310);
+
+    // Divider
+    doc.setDrawColor(232,213,163);
+    doc.setLineWidth(1.5);
+    doc.line(120, 360, W-120, 360);
+
+    // Album title
+    doc.setFont('times','bolditalic');
+    let tSize = 80;
+    doc.setFontSize(tSize);
+    while (doc.getTextWidth(albumData.album) > W-240 && tSize > 36) { tSize -= 4; doc.setFontSize(tSize); }
+    doc.setTextColor(232,213,163);
+    doc.text(albumData.album, 120, 470);
+
+    // Meta
+    const metaY = 560;
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(28);
+    doc.setTextColor(196,168,130);
+    doc.setCharSpace(3);
+    const metaParts = [albumData.year, albumData.genre !== '—' ? albumData.genre.toUpperCase() : null, `${albumData.tracks.length} TRACKS`].filter(Boolean);
+    doc.text(metaParts.join('   ·   '), 120, metaY);
+    doc.setCharSpace(0);
+
+    // Thin divider
+    doc.setDrawColor(40,40,40);
+    doc.setLineWidth(1);
+    doc.line(120, metaY+30, W-120, metaY+30);
+
+    // TRACKLIST label
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(18);
+    doc.setTextColor(100,90,70);
+    doc.setCharSpace(8);
+    doc.text('TRACKLIST', 120, metaY+80);
+    doc.setCharSpace(0);
+
+    // Tracks
+    const tracks = albumData.tracks;
+    const cols = tracks.length > 14 ? 2 : 1;
+    const colW = cols === 2 ? (W - 240 - 60) / 2 : (W - 240);
+    const lineH = cols === 2 ? 68 : 76;
+    const perCol = cols === 2 ? Math.ceil(tracks.length / 2) : tracks.length;
+    const startY = metaY + 110;
+
+    for (let i = 0; i < tracks.length; i++) {
+      const col = Math.floor(i / perCol);
+      const row = i % perCol;
+      const x = 120 + col * (colW + 60);
+      const y = startY + row * lineH;
+
+      doc.setDrawColor(28,28,28);
+      doc.setLineWidth(0.5);
+      doc.line(x, y, x + colW, y);
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(18);
+      doc.setTextColor(90,80,60);
+      doc.text(String(tracks[i].number).padStart(2,'0'), x, y+40);
+
+      doc.setFontSize(30);
+      doc.setTextColor(220,216,208);
+      let tname = tracks[i].title;
+      while (doc.getTextWidth(tname) > colW - 110 && tname.length > 8) tname = tname.slice(0,-4)+'...';
+      doc.text(tname, x + 52, y+42);
+
+      if (tracks[i].duration && tracks[i].duration !== '—') {
+        doc.setFontSize(19);
+        doc.setTextColor(90,80,60);
+        const dw = doc.getTextWidth(tracks[i].duration);
+        doc.text(tracks[i].duration, x + colW - dw, y+40);
+      }
+    }
+
+    // Bottom line
+    doc.setDrawColor(232,213,163);
+    doc.setLineWidth(3);
+    doc.line(120, H-110, W-120, H-110);
+
+    // Footer
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(16);
+    doc.setTextColor(55,50,40);
+    doc.setCharSpace(3);
+    doc.text('VINYL — MUSICBRAINZ OPEN DATABASE', W/2, H-65, { align: 'center' });
+    doc.setCharSpace(0);
+
+    const fname = `${albumData.artist} - ${albumData.album}.pdf`.replace(/[\/\\?%*:|"<>]/g,'-');
+    doc.save(fname);
+    pdfStatus.textContent = `✓ Guardado: ${fname}`;
+  } catch(e) {
+    console.error(e);
+    pdfStatus.textContent = '✗ Error al generar el PDF.';
+  }
+  btn.textContent = '↓ DESCARGAR PÓSTER PDF';
+  btn.disabled = false;
+}
+
+document.getElementById('albumInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchAlbum();
+});
+</script>
+</body>
+</html>
